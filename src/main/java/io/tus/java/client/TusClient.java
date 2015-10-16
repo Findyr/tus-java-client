@@ -1,5 +1,10 @@
 package io.tus.java.client;
 
+import com.squareup.okhttp.OkHttpClient;
+import com.squareup.okhttp.Request;
+import com.squareup.okhttp.RequestBody;
+import com.squareup.okhttp.Response;
+
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -18,12 +23,13 @@ public class TusClient {
     private URL uploadCreationURL;
     private boolean resumingEnabled;
     private TusURLStore urlStore;
+    OkHttpClient okHttpClient;
 
     /**
      * Create a new tus client.
      */
     public TusClient() {
-
+        this.okHttpClient = new OkHttpClient();
     }
 
     /**
@@ -93,24 +99,25 @@ public class TusClient {
      * @throws IOException Thrown if an exception occurs while issuing the HTTP request.
      */
     public TusUploader createUpload(TusUpload upload) throws ProtocolException, IOException {
-        HttpURLConnection connection = (HttpURLConnection) uploadCreationURL.openConnection();
-        connection.setRequestMethod("POST");
-        prepareConnection(connection);
+        RequestBody emptyBody = RequestBody.create(null, new byte[0]);
+        Request.Builder requestBuilder = new Request.Builder().url(uploadCreationURL).post
+                (emptyBody);
+        prepareRequest(requestBuilder);
 
         String encodedMetadata = upload.getEncodedMetadata();
         if(encodedMetadata.length() > 0) {
-            connection.setRequestProperty("Upload-Metadata", encodedMetadata);
+            requestBuilder.addHeader("Upload-Metadata", encodedMetadata);
         }
 
-        connection.addRequestProperty("Upload-Length", Long.toString(upload.getSize()));
-        connection.connect();
+        requestBuilder.addHeader("Upload-Length", Long.toString(upload.getSize()));
+        Response response = okHttpClient.newCall(requestBuilder.build()).execute();
 
-        int responseCode = connection.getResponseCode();
+        int responseCode = response.code();
         if(!(responseCode >= 200 && responseCode < 300)) {
             throw new ProtocolException("unexpected status code (" + responseCode + ") while creating upload");
         }
 
-        String urlStr = connection.getHeaderField("Location");
+        String urlStr = response.header("Location", "");
         if(urlStr.length() == 0) {
             throw new ProtocolException("missing upload URL in response for creating upload");
         }
@@ -150,19 +157,17 @@ public class TusClient {
         if(uploadURL == null) {
             throw new FingerprintNotFoundException(upload.getFingerprint());
         }
+        Request.Builder requestBuilder = new Request.Builder().url(uploadURL).head();
+        prepareRequest(requestBuilder);
 
-        HttpURLConnection connection = (HttpURLConnection) uploadURL.openConnection();
-        connection.setRequestMethod("HEAD");
-        prepareConnection(connection);
+        Response response = okHttpClient.newCall(requestBuilder.build()).execute();
 
-        connection.connect();
-
-        int responseCode = connection.getResponseCode();
+        int responseCode = response.code();
         if(!(responseCode >= 200 && responseCode < 300)) {
             throw new ProtocolException("unexpected status code (" + responseCode + ") while resuming upload");
         }
 
-        String offsetStr = connection.getHeaderField("Upload-Offset");
+        String offsetStr = response.header("Upload-Offset", "");
         if(offsetStr.length() == 0) {
             throw new ProtocolException("missing upload offset in response for resuming upload");
         }
@@ -192,12 +197,10 @@ public class TusClient {
     }
 
     /**
-     * Set headers used for every HTTP request. Currently, this will add the Tus-Resumable header.
-     *
-     * @param connection The connection whose headers will be modified.
+     * Set headers used for every HTTP request.
+     * @param requestBuilder the HTTP request currently being built.
      */
-    public void prepareConnection(URLConnection connection) {
-        connection.addRequestProperty("Tus-Resumable", TUS_VERSION);
-        // TODO: add custom headers
+    public void prepareRequest(Request.Builder requestBuilder) {
+        requestBuilder.addHeader("Tus-Resumable", TUS_VERSION);
     }
 }

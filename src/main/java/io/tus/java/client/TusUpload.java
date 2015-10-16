@@ -6,6 +6,8 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.Map;
 
+import okio.ByteString;
+
 /**
  * This class contains information about a file which will be uploaded later. Uploading is not
  * done using this class but using {@link TusUploader} whose instances are returned by
@@ -98,47 +100,11 @@ public class TusUpload {
             if(!firstElement) {
                 encoded += ",";
             }
-            encoded += entry.getKey() + " " + new String(base64Encode(entry.getValue().getBytes()));
+            encoded += entry.getKey() + " " + ByteString.encodeUtf8(entry.getValue()).base64();
 
             firstElement = false;
         }
 
         return encoded;
-    }
-
-    /**
-     * Encode a byte-array using Base64. This is a sligtly modified version from an implementation
-     * published on Wikipedia (https://en.wikipedia.org/wiki/Base64#Sample_Implementation_in_Java)
-     * under the Creative Commons Attribution-ShareAlike License.
-     */
-    private static String base64Encode(byte[] in)       {
-        StringBuilder out = new StringBuilder((in.length * 4) / 3);
-        String codes = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-
-        int b;
-        for (int i = 0; i < in.length; i += 3)  {
-            b = (in[i] & 0xFC) >> 2;
-            out.append(codes.charAt(b));
-            b = (in[i] & 0x03) << 4;
-            if (i + 1 < in.length)      {
-                b |= (in[i + 1] & 0xF0) >> 4;
-                out.append(codes.charAt(b));
-                b = (in[i + 1] & 0x0F) << 2;
-                if (i + 2 < in.length)  {
-                    b |= (in[i + 2] & 0xC0) >> 6;
-                    out.append(codes.charAt(b));
-                    b = in[i + 2] & 0x3F;
-                    out.append(codes.charAt(b));
-                } else  {
-                    out.append(codes.charAt(b));
-                    out.append('=');
-                }
-            } else      {
-                out.append(codes.charAt(b));
-                out.append("==");
-            }
-        }
-
-        return out.toString();
     }
 }

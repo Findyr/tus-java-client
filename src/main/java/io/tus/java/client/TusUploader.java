@@ -1,5 +1,11 @@
 package io.tus.java.client;
 
+import com.squareup.okhttp.MediaType;
+import com.squareup.okhttp.OkHttpClient;
+import com.squareup.okhttp.Request;
+import com.squareup.okhttp.RequestBody;
+import com.squareup.okhttp.Response;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -8,6 +14,10 @@ import java.net.ProtocolException;
 import java.net.URL;
 import java.net.URLConnection;
 
+import okio.BufferedSink;
+import okio.Okio;
+import okio.Source;
+
 /**
  * This class is used for doing the actual upload of the files. Instances are returned by
  * {@link TusClient#createUpload(TusUpload)}, {@link TusClient#createUpload(TusUpload)} and
@@ -15,51 +25,40 @@ import java.net.URLConnection;
  * <br>
  * After obtaining an instance you can upload a file by following these steps:
  * <ol>
- *  <li>Upload a chunk using {@link #uploadChunk(int)}</li>
- *  <li>Optionally get the new offset ({@link #getOffset()} to calculate the progress</li>
- *  <li>Repeat step 1 until the {@link #uploadChunk(int)} returns -1</li>
- *  <li>Close HTTP connection and InputStream using {@link #finish()} to free resources</li>
+ * <li>Upload a chunk using {@link #uploadChunk(int)}</li>
+ * <li>Optionally get the new offset ({@link #getOffset()} to calculate the progress</li>
+ * <li>Repeat step 1 until the {@link #uploadChunk(int)} returns -1</li>
+ * <li>Close HTTP connection and InputStream using {@link #finish()} to free resources</li>
  * </ol>
  */
 public class TusUploader {
     private URL uploadURL;
     private InputStream input;
     private long offset;
+    private OkHttpClient httpClient;
 
-    private HttpURLConnection connection;
-    private OutputStream output;
+    private Request.Builder requestBuilder;
 
     /**
      * Begin a new upload request by opening a PATCH request to specified upload URL. After this
      * method returns a connection will be ready and you can upload chunks of the file.
      *
-     * @param client Used for preparing a request ({@link TusClient#prepareConnection(URLConnection)}
+     * @param client    Used for preparing a request ({@link TusClient#prepareRequest(Request.Builder)}
      * @param uploadURL URL to send the request to
-     * @param input Stream to read (and seek) from and upload to the remote server
-     * @param offset Offset to read from
+     * @param input     Stream to read (and seek) from and upload to the remote server
+     * @param offset    Offset to read from
      * @throws IOException Thrown if an exception occurs while issuing the HTTP request.
      */
-    public TusUploader(TusClient client, URL uploadURL, InputStream input, long offset) throws IOException {
+    public TusUploader(TusClient client, URL uploadURL, InputStream input, long offset) throws
+            IOException {
         this.uploadURL = uploadURL;
         this.input = input;
         this.offset = offset;
+        this.httpClient = client.okHttpClient;
 
         input.skip(offset);
-
-        connection = (HttpURLConnection) uploadURL.openConnection();
-        client.prepareConnection(connection);
-        connection.setRequestProperty("Upload-Offset", Long.toString(offset));
-        try {
-            connection.setRequestMethod("PATCH");
-            // Check whether we are running on a buggy JRE
-        } catch (final ProtocolException pe) {
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("X-HTTP-Method-Override", "PATCH");
-        }
-
-        connection.setDoOutput(true);
-        connection.setChunkedStreamingMode(0);
-        output = connection.getOutputStream();
+        this.requestBuilder = new Request.Builder().url(uploadURL);
+        client.prepareRequest(this.requestBuilder);
     }
 
     /**
@@ -75,26 +74,44 @@ public class TusUploader {
      *                  return once the specified number of bytes have been sent. For slow
      *                  internet connections this may take a long time.
      * @return Number of bytes read and written.
-     * @throws IOException  Thrown if an exception occurs while reading from the source or writing
-     *                      to the HTTP request.
+     * @throws IOException Thrown if an exception occurs while reading from the source or writing
+     *                     to the HTTP request.
      */
-    public int uploadChunk(int chunkSize) throws IOException {
-        byte[] buffer = new byte[chunkSize];
-        int bytesRead = input.read(buffer);
-        if(bytesRead == -1) {
-            // No bytes were read since the input stream is empty
-            return -1;
+    public int uploadChunk(int chunkSize) throws IOException, io.tus.java.client.ProtocolException {
+        // TODO: is it safe to use available???
+        int length = Math.min(chunkSize, input.available());
+        RequestBody body = new RequestBody() {
+            @Override
+            public MediaType contentType() {
+                return MediaType.parse("application/octet-stream");
+            }
+
+            @Override
+            public long contentLength() throws IOException {
+                return length;
+            }
+
+            @Override
+            public void writeTo(BufferedSink sink) throws IOException {
+                Source source = Okio.source(input);
+                sink.write(source, length);
+            }
+        };
+        this.requestBuilder.addHeader("Upload-Offset", Long.toString(offset));
+        this.requestBuilder.patch(body);
+        Response response = this.httpClient.newCall(requestBuilder.build()).execute();
+        int responseCode = response.code();
+        if (!(responseCode >= 200 && responseCode < 300)) {
+            throw new io.tus.java.client.ProtocolException(
+                    "unexpected status code (" + responseCode + ") while uploading chunk");
         }
-
-        // Do not write the entire buffer to the stream since the array will
-        // be filled up with 0x00s if the number of read bytes is lower then
-        // the chunk's size.
-        output.write(buffer, 0, bytesRead);
-        output.flush();
-
-        offset += bytesRead;
-
-        return bytesRead;
+        String offsetStr = response.header("Upload-Offset", "");
+        if (offsetStr.length() == 0) {
+            throw new io.tus.java.client.ProtocolException(
+                    "missing upload offset in response for resuming upload");
+        }
+        this.offset = Long.parseLong(offsetStr);
+        return length;
     }
 
     /**
@@ -118,17 +135,10 @@ public class TusUploader {
      * enable pausing uploads.
      *
      * @throws io.tus.java.client.ProtocolException Thrown if the server sends an unexpected status
-     * code
-     * @throws IOException  Thrown if an exception occurs while cleaning up.
+     *                                              code
+     * @throws IOException                          Thrown if an exception occurs while cleaning up.
      */
-    public void finish() throws io.tus.java.client.ProtocolException, IOException {
+    public void finish() throws IOException {
         input.close();
-        output.close();
-        int responseCode = connection.getResponseCode();
-        connection.disconnect();
-
-        if(!(responseCode >= 200 && responseCode < 300)) {
-            throw new io.tus.java.client.ProtocolException("unexpected status code (" + responseCode + ") while uploading chunk");
-        }
     }
 }
