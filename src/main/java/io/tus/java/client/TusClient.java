@@ -26,10 +26,18 @@ public class TusClient {
     OkHttpClient okHttpClient;
 
     /**
-     * Create a new tus client.
+     * Create a new TUS client.
      */
     public TusClient() {
         this.okHttpClient = new OkHttpClient();
+    }
+
+    /**
+     * Create a new TUS client, with the provided underlying {@link OkHttpClient}.
+     * @param client - the <code>OkHttpClient</code> which handles HTTP requests.
+     */
+    public TusClient(OkHttpClient client) {
+        this.okHttpClient = client;
     }
 
     /**
