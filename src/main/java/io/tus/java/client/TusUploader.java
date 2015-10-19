@@ -78,27 +78,15 @@ public class TusUploader {
      *                     to the HTTP request.
      */
     public int uploadChunk(int chunkSize) throws IOException, io.tus.java.client.ProtocolException {
-        // TODO: is it safe to use available???
-        int length = Math.min(chunkSize, input.available());
-        RequestBody body = new RequestBody() {
-            @Override
-            public MediaType contentType() {
-                return MediaType.parse("application/octet-stream");
-            }
-
-            @Override
-            public long contentLength() throws IOException {
-                return length;
-            }
-
-            @Override
-            public void writeTo(BufferedSink sink) throws IOException {
-                Source source = Okio.source(input);
-                sink.write(source, length);
-            }
-        };
+        byte[] buffer = new byte[chunkSize];
+        int bytesRead = input.read(buffer);
+        if(bytesRead == -1) {
+            // No bytes were read since the input stream is empty
+            return -1;
+        }
         this.requestBuilder.addHeader("Upload-Offset", Long.toString(offset));
-        this.requestBuilder.patch(body);
+        this.requestBuilder.patch(RequestBody.create(MediaType.parse("appication/octet-stream"),
+                buffer, 0, bytesRead));
         Response response = this.httpClient.newCall(requestBuilder.build()).execute();
         int responseCode = response.code();
         if (!(responseCode >= 200 && responseCode < 300)) {
@@ -111,7 +99,7 @@ public class TusUploader {
                     "missing upload offset in response for resuming upload");
         }
         this.offset = Long.parseLong(offsetStr);
-        return length;
+        return bytesRead;
     }
 
     /**

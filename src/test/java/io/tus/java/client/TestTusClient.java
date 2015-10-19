@@ -1,5 +1,7 @@
 package io.tus.java.client;
 
+import com.squareup.okhttp.Request;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -176,10 +178,10 @@ public class TestTusClient extends TestCase {
 
     @Test
     public void testPrepareConnection() throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) mockServerURL.openConnection();
+        Request.Builder requestBuilder = new Request.Builder().url(mockServerURL);
         TusClient client = new TusClient();
-        client.prepareConnection(connection);
-
-        assertEquals(connection.getRequestProperty("Tus-Resumable"), TusClient.TUS_VERSION);
+        client.prepareRequest(requestBuilder);
+        Request request = requestBuilder.get().build();
+        assertEquals(request.header("Tus-Resumable"), TusClient.TUS_VERSION);
     }
 }
