@@ -1,9 +1,10 @@
 package io.tus.java.client;
 
 import java.io.IOException;
-import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
+
+import io.tus.java.client.io.tus.java.client.provider.HttpUrlConnectionProvider;
 
 /**
  * This class is used for creating or resuming uploads.
@@ -18,12 +19,21 @@ public class TusClient {
     private URL uploadCreationURL;
     private boolean resumingEnabled;
     private TusURLStore urlStore;
+    private HttpProvider provider;
 
     /**
      * Create a new tus client.
      */
     public TusClient() {
+        this.provider = new HttpUrlConnectionProvider();
+    }
 
+    public TusClient(HttpProvider provider) {
+        this.provider = provider;
+    }
+
+    public HttpProvider getProvider() {
+        return this.provider;
     }
 
     /**
@@ -93,24 +103,24 @@ public class TusClient {
      * @throws IOException Thrown if an exception occurs while issuing the HTTP request.
      */
     public TusUploader createUpload(TusUpload upload) throws ProtocolException, IOException {
-        HttpURLConnection connection = (HttpURLConnection) uploadCreationURL.openConnection();
-        connection.setRequestMethod("POST");
-        prepareConnection(connection);
+        HttpRequest.Builder builder = provider.getRequestBuilder(uploadCreationURL);
+        this.prepareRequest(builder);
 
         String encodedMetadata = upload.getEncodedMetadata();
         if(encodedMetadata.length() > 0) {
-            connection.setRequestProperty("Upload-Metadata", encodedMetadata);
+            builder.addHeader("Upload-Metadata", encodedMetadata);
         }
 
-        connection.addRequestProperty("Upload-Length", Long.toString(upload.getSize()));
-        connection.connect();
+        builder.addHeader("Upload-Length", Long.toString(upload.getSize()));
+        HttpRequest request = builder.post();
+        HttpResponse response = provider.executeRequest(request);
 
-        int responseCode = connection.getResponseCode();
+        int responseCode = response.getResponseCode();
         if(!(responseCode >= 200 && responseCode < 300)) {
             throw new ProtocolException("unexpected status code (" + responseCode + ") while creating upload");
         }
 
-        String urlStr = connection.getHeaderField("Location");
+        String urlStr = response.getHeader("Location");
         if(urlStr.length() == 0) {
             throw new ProtocolException("missing upload URL in response for creating upload");
         }
@@ -121,7 +131,11 @@ public class TusClient {
             urlStore.set(upload.getFingerprint(), uploadURL);
         }
 
-        return new TusUploader(this, uploadURL, upload.getInputStream(), 0);
+        return new TusUploader(this, uploadURL, upload, 0);
+    }
+
+    public void prepareRequest(HttpRequest.Builder builder) {
+        builder.addHeader("Tus-Resumable", TUS_VERSION);
     }
 
     /**
@@ -150,25 +164,23 @@ public class TusClient {
         if(uploadURL == null) {
             throw new FingerprintNotFoundException(upload.getFingerprint());
         }
+        HttpRequest.Builder builder = this.provider.getRequestBuilder(uploadURL);
+        this.prepareRequest(builder);
+        HttpRequest request = builder.head();
+        HttpResponse response = this.provider.executeRequest(request);
 
-        HttpURLConnection connection = (HttpURLConnection) uploadURL.openConnection();
-        connection.setRequestMethod("HEAD");
-        prepareConnection(connection);
-
-        connection.connect();
-
-        int responseCode = connection.getResponseCode();
+        int responseCode = response.getResponseCode();
         if(!(responseCode >= 200 && responseCode < 300)) {
             throw new ProtocolException("unexpected status code (" + responseCode + ") while resuming upload");
         }
 
-        String offsetStr = connection.getHeaderField("Upload-Offset");
+        String offsetStr = response.getHeader("Upload-Offset");
         if(offsetStr.length() == 0) {
             throw new ProtocolException("missing upload offset in response for resuming upload");
         }
         long offset = Long.parseLong(offsetStr);
 
-        return new TusUploader(this, uploadURL, upload.getInputStream(), offset);
+        return new TusUploader(this, uploadURL, upload, offset);
     }
 
     /**
@@ -189,15 +201,5 @@ public class TusClient {
         } catch(ResumingNotEnabledException e) {
             return createUpload(upload);
         }
-    }
-
-    /**
-     * Set headers used for every HTTP request. Currently, this will add the Tus-Resumable header.
-     *
-     * @param connection The connection whose headers will be modified.
-     */
-    public void prepareConnection(URLConnection connection) {
-        connection.addRequestProperty("Tus-Resumable", TUS_VERSION);
-        // TODO: add custom headers
     }
 }

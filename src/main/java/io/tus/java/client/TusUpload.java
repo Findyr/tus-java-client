@@ -63,6 +63,10 @@ public class TusUpload {
         return input;
     }
 
+    public InputStream getInputStream(long maxReadBytes) {
+        return new PartialInputStream(input, maxReadBytes);
+    }
+
     /**
      * Set the source from which will be read if the file will be later uploaded.
      *
