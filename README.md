@@ -1,4 +1,4 @@
-# tus-java-client
+# findyr-tus-java-client
 
 > **tus** is a protocol based on HTTP for *resumable file uploads*. Resumable
 > means that an upload can be interrupted at any moment and can be resumed without
@@ -6,7 +6,10 @@
 > the user wants to pause, or by accident in case of an network issue or server
 > outage.
 
-**tus-java-client** is a library for uploading files using the *tus* protocol to any remote server supporting it.
+**findyr-tus-java-client** is a library for uploading files using the *tus* protocol to any remote 
+server supporting it. It is designed to be adaptable with third party HTTP clients, such as 
+[Apache HTTP Client](https://hc.apache.org/httpcomponents-client-ga/) or [OkHttp](http://square.github.io/okhttp/).
+This client is a fork of the [tus-java-client](https://github.com/tus/tus-java-client).
 
 This library is also compatible with the Android platform and can be used without any modifications using the API. The [tus-android-client](https://github.com/tus/tus-android-client) provides additional classes which can be used in addition the Java library.
 
@@ -36,7 +39,7 @@ TusUploader uploader = client.resumeOrCreateUpload(upload);
 
 // Upload the file in chunks of 1KB as long as data is available. Once the
 // file has been fully uploaded the method will return -1
-while(uploader.uploadChunk(1024 * 1024) > -1) {
+while(uploader.uploadChunk(1024 * 1024) < upload.getSize()) {
   // Calculate the progress using the total size of the uploading file and
   // the current offset.
   long totalBytes = upload.getSize();
@@ -45,33 +48,17 @@ while(uploader.uploadChunk(1024 * 1024) > -1) {
 }
 
 // Allow the HTTP connection to be closed and cleaned up
-uploader.finish();
+uploader.close();
 
 ```
 
 ## Installation
 
-The JARs can be downloaded manually from our [Bintray project](https://bintray.com/tus/maven/tus-java-client/view#files). tus-java-client is also available in JCenter (Maven Central is coming soon).
-
-**Gradle:**
-
-```groovy
-compile 'io.tus.java.client:tus-java-client:0.1.1'
-```
-
-**Maven:**
-
-```xml
-<dependency>
-  <groupId>io.tus.java.client</groupId>
-  <artifactId>tus-java-client</artifactId>
-  <version>0.1.1</version>
-</dependency>
-```
+Currently installation is only available by compiling from source.
 
 ## Documentation
 
-The documentation of the latest version (master branch of git repository) can be found online at [tus.github.io/tus-java-client/javadoc/](https://tus.github.io/tus-java-client/javadoc/).
+Coming soon!
 
 ## License
 
