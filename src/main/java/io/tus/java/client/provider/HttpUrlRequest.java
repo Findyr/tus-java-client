@@ -1,6 +1,5 @@
-package io.tus.java.client.io.tus.java.client.provider;
+package io.tus.java.client.provider;
 
-import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -12,7 +11,8 @@ import java.util.Map;
 import io.tus.java.client.HttpRequest;
 
 /**
- * Created by findyr-akaplan on 10/27/15.
+ * <code>HttpUrlRequest</code> implements the {@link HttpRequest} interface using {@link
+ * HttpURLConnection} connections.
  */
 public class HttpUrlRequest implements HttpRequest {
 
@@ -25,10 +25,12 @@ public class HttpUrlRequest implements HttpRequest {
         this.body = body;
     }
 
+    @Override
     public InputStream getBody() {
         return this.body;
     }
 
+    @Override
     public String getHeader(String key) {
         return this.connection.getRequestProperty(key);
     }
@@ -49,13 +51,21 @@ public class HttpUrlRequest implements HttpRequest {
         }
 
         @Override
-        public void addHeader(String header, String data) {
+        public HttpRequest.Builder addHeader(String header, String data) {
             this.headers.put(header, data);
+            return this;
         }
 
         @Override
-        public void setBody(InputStream body) {
+        public HttpRequest.Builder setBody(InputStream body) {
             this.body = body;
+            return this;
+        }
+
+        @Override
+        public HttpRequest.Builder setRequestMethod(String method) {
+            this.requestMethod = method;
+            return this;
         }
 
         @Override

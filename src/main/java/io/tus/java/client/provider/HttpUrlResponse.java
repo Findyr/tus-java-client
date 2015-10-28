@@ -1,4 +1,4 @@
-package io.tus.java.client.io.tus.java.client.provider;
+package io.tus.java.client.provider;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;

@@ -1,4 +1,4 @@
-package io.tus.java.client.io.tus.java.client.provider;
+package io.tus.java.client.provider;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -11,9 +11,13 @@ import io.tus.java.client.HttpRequest;
 import io.tus.java.client.HttpResponse;
 
 /**
- * Created by findyr-akaplan on 10/27/15.
+ * <code>HttpUrlConectionProvider</code> implements the {@link HttpProvider} interface using
+ * {@link HttpURLConnection} connections. It is intended to serve as the default
+ * <code>HttpProvider</code> implementation for <code>TusClient</code> instances.
  */
 public class HttpUrlConnectionProvider implements HttpProvider {
+
+    public HttpUrlConnectionProvider() {}
 
     @Override
     public HttpRequest.Builder getRequestBuilder(URL url) {
@@ -26,13 +30,17 @@ public class HttpUrlConnectionProvider implements HttpProvider {
             HttpUrlRequest urlRequest = (HttpUrlRequest) request;
             HttpURLConnection connection = urlRequest.getConnection();
             if (urlRequest.getBody() != null) {
+                connection.setDoOutput(true);
+                connection.setChunkedStreamingMode(0);
                 byte[] buffer = new byte[1024];
                 int bytesRead = 0;
                 OutputStream out = new BufferedOutputStream(connection.getOutputStream());
                 while (bytesRead > -1) {
                     bytesRead = urlRequest.getBody().read(buffer);
-                    out.write(buffer, 0, bytesRead);
-                    out.flush();
+                    if (bytesRead > -1) {
+                        out.write(buffer, 0, bytesRead);
+                        out.flush();
+                    }
                 }
             }
             connection.connect();

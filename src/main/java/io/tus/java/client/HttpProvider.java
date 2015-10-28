@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.net.URL;
 
 /**
- * Created by findyr-akaplan on 10/27/15.
+ * An <code>HttpProvider</code> represents an HTTP client that can submit HTTP requests and read
+ * HTTP responses. Providers must be capable of creating an {@link io.tus.java.client.HttpRequest
+ * .Builder} to facilitate the creation of HTTP requests.
  */
 public interface HttpProvider {
 

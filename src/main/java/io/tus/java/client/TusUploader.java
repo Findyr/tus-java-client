@@ -1,14 +1,9 @@
 package io.tus.java.client;
 
-import com.sun.deploy.net.*;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.ProtocolException;
 import java.net.URL;
-import java.net.URLConnection;
 
 /**
  * This class is used for doing the actual upload of the files. Instances are returned by
@@ -61,6 +56,7 @@ public class TusUploader {
     public long uploadChunk(long chunkSize) throws IOException, io.tus.java.client
             .ProtocolException {
         HttpRequest.Builder builder = this.client.getProvider().getRequestBuilder(this.uploadURL);
+        this.client.prepareRequest(builder);
         try (InputStream input = this.upload.getInputStream(chunkSize)) {
             long bytesSkipped = input.skip(this.offset);
             if (bytesSkipped != this.offset) {

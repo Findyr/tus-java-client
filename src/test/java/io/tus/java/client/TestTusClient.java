@@ -26,7 +26,7 @@ public class TestTusClient {
     static URL creationUrl;
 
     @Before
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         creationUrl = new URL("http://master.tus.io");
         int port = PortFactory.findFreePort();
         mockServerURL = new URL("http://localhost:" + port + "/files");
@@ -34,7 +34,7 @@ public class TestTusClient {
     }
 
     @After
-    protected void tearDown() {
+    public void tearDown() {
         mockServer.stop();
     }
 

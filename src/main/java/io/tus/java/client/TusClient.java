@@ -2,9 +2,8 @@ package io.tus.java.client;
 
 import java.io.IOException;
 import java.net.URL;
-import java.net.URLConnection;
 
-import io.tus.java.client.io.tus.java.client.provider.HttpUrlConnectionProvider;
+import io.tus.java.client.provider.HttpUrlConnectionProvider;
 
 /**
  * This class is used for creating or resuming uploads.
