@@ -1,8 +1,11 @@
 package io.tus.java.client;
 
+import java.io.BufferedInputStream;
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 
@@ -12,7 +15,7 @@ import java.util.Map;
  * {@link TusClient#createUpload(TusUpload)}, {@link TusClient#createUpload(TusUpload)} and
  * {@link TusClient#resumeOrCreateUpload(TusUpload)}.
  */
-public class TusUpload {
+public class TusUpload implements Closeable, AutoCloseable {
     private long size;
     private InputStream input;
     private String fingerprint;
@@ -33,7 +36,7 @@ public class TusUpload {
      */
     public TusUpload(File file) throws FileNotFoundException {
         size = file.length();
-        input = new FileInputStream(file);
+        input = new BufferedInputStream(new FileInputStream(file));
 
         fingerprint = String.format("%s-%d", file.getAbsolutePath(), size);
     }
@@ -63,17 +66,13 @@ public class TusUpload {
         return input;
     }
 
-    public InputStream getInputStream(long maxReadBytes) {
-        return new PartialInputStream(input, maxReadBytes);
-    }
-
     /**
      * Set the source from which will be read if the file will be later uploaded.
      *
      * @param inputStream The stream which will be read.
      */
     public void setInputStream(InputStream inputStream) {
-        input = inputStream;
+        input = new BufferedInputStream(inputStream);
     }
 
     public void setMetadata(Map<String, String> metadata) {
@@ -144,5 +143,12 @@ public class TusUpload {
         }
 
         return out.toString();
+    }
+
+    @Override
+    public void close() throws IOException {
+        if (this.input != null) {
+            this.input.close();
+        }
     }
 }

@@ -1,22 +1,21 @@
 package io.tus.java.client;
 
-import static org.junit.Assert.*;
-
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Random;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 /**
  * Tests for the <code>PartialInputStream</code>
@@ -81,6 +80,29 @@ public class TestPartialInputStream {
             fail("Could not locate test file!");
         } catch (IOException e) {
             fail("IO Exception occurred: " + e.getMessage());
+        }
+    }
+
+    @Test
+    public void testCloseBehavior() throws IOException {
+        BufferedInputStream inputStream =
+                new BufferedInputStream(new ByteArrayInputStream(this.testInput));
+        PartialInputStream subject = new PartialInputStream(inputStream, 0);
+        try {
+            subject.close();
+        } catch (IOException e) {
+            fail("Should not throw IOException when closing!");
+        }
+
+        try {
+            byte[] output = new byte[this.testInput.length];
+            int bytesRead = inputStream.read(output);
+            assertEquals(bytesRead, this.testInput.length);
+            assertArrayEquals(this.testInput, output);
+        } catch (IOException e) {
+            fail("Underlying input stream should not be closed!");
+        } finally {
+            inputStream.close();
         }
     }
 }

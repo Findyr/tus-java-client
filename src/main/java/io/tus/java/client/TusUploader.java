@@ -1,8 +1,8 @@
 package io.tus.java.client;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URL;
 
 /**
@@ -12,18 +12,16 @@ import java.net.URL;
  * <br>
  * After obtaining an instance you can upload a file by following these steps:
  * <ol>
- *  <li>Upload a chunk using {@link #uploadChunk(long)}</li>
+ *  <li>Upload a chunk using {@link #uploadChunk(int)}</li>
  *  <li>Optionally get the new offset ({@link #getOffset()} to calculate the progress</li>
- *  <li>Repeat step 1 until the {@link #uploadChunk(long)} returns the file's size</li>
+ *  <li>Repeat step 1 until the {@link #uploadChunk(int)} returns the file's size</li>
  * </ol>
  */
-public class TusUploader {
+public class TusUploader implements Closeable, AutoCloseable {
     private URL uploadURL;
-    private TusUpload upload;
     private long offset;
     private TusClient client;
-
-    private OutputStream output;
+    private InputStream input;
 
     /**
      * Begin a new upload request by opening a PATCH request to specified upload URL. After this
@@ -31,14 +29,19 @@ public class TusUploader {
      *
      * @param client Used for preparing a request
      * @param uploadURL URL to send the request to
-     * @param upload File to upload.
+     * @param upload File or stream to upload.
      * @param offset Offset to read from
      */
-    public TusUploader(TusClient client, URL uploadURL, TusUpload upload, long offset) {
+    public TusUploader(TusClient client, URL uploadURL, TusUpload upload, long offset) throws
+            IOException {
         this.uploadURL = uploadURL;
-        this.upload = upload;
+        this.input = upload.getInputStream();
         this.offset = offset;
         this.client = client;
+        long bytesSkipped = input.skip(this.offset);
+        if (bytesSkipped != this.offset) {
+            throw new IllegalStateException("Could not skip to offset");
+        }
     }
 
     /**
@@ -53,26 +56,30 @@ public class TusUploader {
      * @throws IOException  Thrown if an exception occurs while reading from the source or writing
      *                      to the HTTP request.
      */
-    public long uploadChunk(long chunkSize) throws IOException, io.tus.java.client
+    public long uploadChunk(int chunkSize) throws IOException, io.tus.java.client
             .ProtocolException {
         HttpRequest.Builder builder = this.client.getProvider().getRequestBuilder(this.uploadURL);
         this.client.prepareRequest(builder);
-        try (InputStream input = this.upload.getInputStream(chunkSize)) {
-            long bytesSkipped = input.skip(this.offset);
-            if (bytesSkipped != this.offset) {
-                throw new IllegalStateException("Could not skip to offset");
-            }
+        PartialInputStream uploadInput = new PartialInputStream(this.input, chunkSize);
+        try {
+            uploadInput.mark(chunkSize);
             builder.addHeader("Upload-Offset", Long.toString(offset));
-            builder.setBody(input);
+            builder.setBody(uploadInput);
             HttpRequest request = builder.patch();
             HttpResponse response = this.client.getProvider().executeRequest(request);
             int responseCode = response.getResponseCode();
             if (!(responseCode >= 200 && responseCode < 300)) {
+                uploadInput.reset();
                 throw new io.tus.java.client.ProtocolException("unexpected status code " +
                         responseCode + " while uploading chunk.");
             }
             String newOffset = response.getHeader("Upload-Offset");
             offset = Long.parseLong(newOffset);
+        } catch (IOException e) {
+            uploadInput.reset();
+            throw e;
+        } finally {
+            uploadInput.close();
         }
         return offset;
     }
@@ -90,5 +97,12 @@ public class TusUploader {
 
     public URL getUploadURL() {
         return uploadURL;
+    }
+
+    @Override
+    public void close() throws IOException {
+        if (this.input != null) {
+            this.input.close();
+        }
     }
 }

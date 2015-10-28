@@ -47,7 +47,7 @@ public class HttpUrlRequest implements HttpRequest {
 
         public Builder(URL url) {
             this.url = url;
-            this.headers = new HashMap<>();
+            this.headers = new HashMap<String, String>();
         }
 
         @Override

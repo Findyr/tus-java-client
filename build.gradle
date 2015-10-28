@@ -1,13 +1,17 @@
 apply plugin: 'java'
 apply plugin: 'maven'
 
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
 
 repositories {
     mavenCentral()
+    jcenter()
 }
 
 dependencies {
     testCompile 'junit:junit:4.12'
+    testCompile 'org.mockito:mockito-core:1.+'
     testCompile 'org.mock-server:mockserver-netty:3.9.17'
 }
 
