@@ -67,6 +67,15 @@ public class TusClient {
     }
 
     /**
+     * Get the <code>TusURLStore</code> used for resuming uploads. If upload resuming is not
+     * enabled, this will return <code>null</code>
+     * @return the <code>TusURLStore</code> used for resuming uploads.
+     */
+    public TusURLStore getUrlStore() {
+        return this.urlStore;
+    }
+
+    /**
      * Disable resuming started uploads.
      *
      * @see #enableResuming(TusURLStore)
