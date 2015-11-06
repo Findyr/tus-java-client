@@ -27,12 +27,15 @@ public class TestPartialInputStream {
     @Before
     public void setUp() throws Exception {
         ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
-        try (OutputStream out = new BufferedOutputStream(bytesOut)) {
+        OutputStream out = new BufferedOutputStream(bytesOut);
+        try {
             Random byteGen = new Random();
             for (int i = 0; i < 1024; i++) {
                 out.write(byteGen.nextInt());
             }
             out.flush();
+        } finally {
+            out.close();
         }
         this.testInput = bytesOut.toByteArray();
         bytesOut.close();
@@ -40,22 +43,31 @@ public class TestPartialInputStream {
 
     @Test
     public void testPartialFileRead() {
-        checkFileRead(10, 0);
-        checkFileRead(100, 100);
-        // Less than 100 bytes should be read.
-        checkFileRead(100, 1000);
+        try {
+            checkFileRead(10, 0);
+            checkFileRead(100, 100);
+            // Less than 100 bytes should be read.
+            checkFileRead(100, 1000);
+        } catch (IOException e) {
+            fail("Failed due to IOException " + e.getMessage());
+        }
     }
 
     @Test
     public void testFullFileRead() {
-        checkFileRead(0, 0);
+        try {
+            checkFileRead(0, 0);
+        } catch (IOException e) {
+            fail("Failed due to IOException " + e.getMessage());
+        }
     }
 
-    public void checkFileRead(int bytesToRead, int bytesToSkip) {
-        try (ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
-             ByteArrayInputStream bytesIn = new ByteArrayInputStream(this.testInput);
-             PartialInputStream subject = new PartialInputStream(bytesIn, bytesToRead);
-             OutputStream out = new BufferedOutputStream(bytesOut)) {
+    public void checkFileRead(int bytesToRead, int bytesToSkip) throws IOException{
+        ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
+        ByteArrayInputStream bytesIn = new ByteArrayInputStream(this.testInput);
+        PartialInputStream subject = new PartialInputStream(bytesIn, bytesToRead);
+        OutputStream out = new BufferedOutputStream(bytesOut);
+        try {
             long skippedBytes = subject.skip(bytesToSkip);
             int data = 0;
             while (data > -1) {
@@ -80,6 +92,9 @@ public class TestPartialInputStream {
             fail("Could not locate test file!");
         } catch (IOException e) {
             fail("IO Exception occurred: " + e.getMessage());
+        } finally {
+            subject.close();
+            out.close();
         }
     }
 
