@@ -62,7 +62,7 @@ public class TestPartialInputStream {
         }
     }
 
-    public void checkFileRead(int bytesToRead, int bytesToSkip) throws IOException{
+    public void checkFileRead(int bytesToRead, int bytesToSkip) throws IOException {
         ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
         ByteArrayInputStream bytesIn = new ByteArrayInputStream(this.testInput);
         PartialInputStream subject = new PartialInputStream(bytesIn, bytesToRead);

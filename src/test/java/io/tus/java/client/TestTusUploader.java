@@ -80,7 +80,6 @@ public class TestTusUploader {
                         .withPath("/files/foo")
                         .withHeader("Tus-Resumable", TusClient.TUS_VERSION)
                         .withHeader("Upload-Offset", "3")
-                        .withBody(Arrays.copyOfRange(content, 3, 8))
         ).respond(new HttpResponse().withStatusCode(502));
         TusClient client = new TusClient();
         URL uploadUrl = new URL(mockServerURL + "/foo");
@@ -94,6 +93,7 @@ public class TestTusUploader {
             fail("Expected exception to be thrown!");
         } catch (ProtocolException e) {
             // Test that in the event of an exception, the input stream is re-set to the offset.
+            assertEquals(502, e.getStatusCode());
             byte[] remainingContents = new byte[8];
             int bytesRead = upload.getInputStream().read(remainingContents);
             assertEquals(8, bytesRead);

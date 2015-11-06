@@ -71,7 +71,7 @@ public class TusUploader implements Closeable, AutoCloseable {
             if (!(responseCode >= 200 && responseCode < 300)) {
                 uploadInput.reset();
                 throw new io.tus.java.client.ProtocolException("unexpected status code " +
-                        responseCode + " while uploading chunk.");
+                        responseCode + " while uploading chunk.", responseCode);
             }
             String newOffset = response.getHeader("Upload-Offset");
             offset = Long.parseLong(newOffset);
