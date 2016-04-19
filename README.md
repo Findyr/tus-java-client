@@ -34,9 +34,12 @@ TusUpload upload = new TusUpload(file);
 // a connection to the remote server and doing the uploading.
 TusUploader uploader = client.resumeOrCreateUpload(upload);
 
-// Upload the file in chunks of 1KB as long as data is available. Once the
+// Upload the file in chunks of 1MB sizes.
+uploader.setChunkSize(1024 * 1024);
+
+// Upload the file as long as data is available. Once the
 // file has been fully uploaded the method will return -1
-while(uploader.uploadChunk(1024 * 1024) > -1) {
+while(uploader.uploadChunk() > -1) {
   // Calculate the progress using the total size of the uploading file and
   // the current offset.
   long totalBytes = upload.getSize();
@@ -56,7 +59,7 @@ The JARs can be downloaded manually from our [Bintray project](https://bintray.c
 **Gradle:**
 
 ```groovy
-compile 'io.tus.java.client:tus-java-client:0.1.1'
+compile 'io.tus.java.client:tus-java-client:0.1.4'
 ```
 
 **Maven:**
@@ -65,7 +68,7 @@ compile 'io.tus.java.client:tus-java-client:0.1.1'
 <dependency>
   <groupId>io.tus.java.client</groupId>
   <artifactId>tus-java-client</artifactId>
-  <version>0.1.1</version>
+  <version>0.1.4</version>
 </dependency>
 ```
 
