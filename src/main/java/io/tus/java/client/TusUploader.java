@@ -101,8 +101,10 @@ public class TusUploader {
      * @return Number of bytes read and written.
      * @throws IOException  Thrown if an exception occurs while reading from the source or writing
      *                      to the HTTP request.
+     * @throws io.tus.java.client.ProtocolException Thrown if an error code is received while
+     *                                              writing to the connection.
      */
-    public int uploadChunk() throws IOException {
+    public int uploadChunk() throws IOException, io.tus.java.client.ProtocolException {
         int bytesRead = input.read(buffer);
         if(bytesRead == -1) {
             // No bytes were read since the input stream is empty
@@ -116,6 +118,11 @@ public class TusUploader {
         output.flush();
 
         offset += bytesRead;
+
+        int responseCode = connection.getResponseCode();
+        if (responseCode >= 400) {
+            throw new io.tus.java.client.ProtocolException("unexpected error code (" + responseCode + ") while uploading chunk", connection);
+        }
 
         return bytesRead;
     }
@@ -141,8 +148,10 @@ public class TusUploader {
      * @return Number of bytes read and written.
      * @throws IOException  Thrown if an exception occurs while reading from the source or writing
      *                      to the HTTP request.
+     * @throws io.tus.java.client.ProtocolException Thrown if an error code is received while
+     *                                              writing to the connection.
      */
-    @Deprecated public int uploadChunk(int chunkSize) throws IOException {
+    @Deprecated public int uploadChunk(int chunkSize) throws IOException, io.tus.java.client.ProtocolException {
         byte[] buf = new byte[chunkSize];
         int bytesRead = input.read(buf);
         if(bytesRead == -1) {
@@ -157,6 +166,11 @@ public class TusUploader {
         output.flush();
 
         offset += bytesRead;
+
+        int responseCode = connection.getResponseCode();
+        if (responseCode >= 400) {
+            throw new io.tus.java.client.ProtocolException("unexpected error code (" + responseCode + ") while uploading chunk", connection);
+        }
 
         return bytesRead;
     }
