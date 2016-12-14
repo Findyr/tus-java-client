@@ -20,6 +20,15 @@ public class TusUpload {
     private Map<String, String> metadata;
 
     /**
+     * Get the fingerprint used to identify a file to be uploaded.
+     * @param file - the file to upload.
+     * @return a <code>String</code> which is used to uniquely identify the file on the local device.
+     */
+    public static String getFingerprint(File file) {
+        return String.format("%s-%d", file.getAbsolutePath(), file.length());
+    }
+
+    /**
      * Create a new TusUpload object.
      */
     public TusUpload() {
@@ -36,7 +45,7 @@ public class TusUpload {
         size = file.length();
         input = new FileInputStream(file);
 
-        fingerprint = String.format("%s-%d", file.getAbsolutePath(), size);
+        fingerprint = getFingerprint(file);
 
         metadata = new HashMap<String, String>();
         metadata.put("filename", file.getName());
